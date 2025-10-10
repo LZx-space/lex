@@ -2,10 +2,22 @@
 #![no_std]
 #![no_main]
 #![feature(allocator_api, alloc_error_handler)]
-pub mod uart;
 mod interrupt;
+pub mod uart;
 
+use core::arch::asm;
 use core::panic::PanicInfo;
+
+/// 声明一个外部符号，链接器会寻找它作为程序的入口
+/// 函数在 `/asm/boot.S` 汇编文件中调用
+#[unsafe(no_mangle)]
+pub extern "C" fn kernel_main() -> ! {
+    let mut uart = uart::Uart::new(0x1000_0000);
+    uart.init();
+    uart.put(b'H');
+    println!("Hello, World!");
+    loop {}
+}
 
 // ///////////////////////////////////
 // / RUST MACROS
@@ -34,14 +46,11 @@ macro_rules! println
 	});
 }
 
-/// 声明一个外部符号，链接器会寻找它作为程序的入口
-/// 函数在 `/asm/boot.S` 汇编文件中调用
+// ///////////////////////////////////
+// / LANGUAGE STRUCTURES / FUNCTIONS
+// ///////////////////////////////////
 #[unsafe(no_mangle)]
-pub extern "C" fn kernel_main() -> ! {
-    uart::Uart::new(0x1000_0000).init();
-    println!("Hello, World!");
-    loop {}
-}
+extern "C" fn eh_personality() {}
 
 /// 这个函数会在 panic 时被调用
 /// `info` 参数包含了 panic 发生的文件名、行号等可选信息
@@ -55,4 +64,13 @@ fn panic(info: &PanicInfo) -> ! {
         println!("no information available.");
     }
     loop {}
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn abort() -> ! {
+    loop {
+        unsafe {
+            asm!("wfi");
+        }
+    }
 }
