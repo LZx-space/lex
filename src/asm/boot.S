@@ -1,7 +1,5 @@
 # boot.S
-# bootloader for SoS
-# Stephen Marz
-# 8 February 2019
+# bootloader
 .option norvc
 .section .data
 .section .text.init

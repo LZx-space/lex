@@ -1,8 +1,27 @@
-// uart.rs
-// UART routines and driver
+use core::{
+    convert::TryInto,
+    fmt::{Error, Write},
+};
 
-use core::fmt::{Error, Write};
-
+/// 寄存器地址映射（物理布局）：
+/// * 偏移 0:
+///     * DLAB = 0时，`THR`/`RBR`(发送保持寄存器/接收缓冲寄存器)
+///     * DLAB = 1时，`DLL`(除数锁存低字节)
+/// * 偏移 1:
+///     * DLAB = 0时，`IER`(中断使能寄存器)
+///     * DLAB = 1时，`DLM`(除数锁存高字节)
+/// * 偏移 2: `IIR`/`FCR`(中断标识寄存器/FIFO 控制寄存器)
+/// * 偏移 3: `LCR`(线控制寄存器)
+///     * 有8位，分别功能
+///       ```
+///       bit7  bit6  bit5  bit4  bit3  bit2  bit1  bit0
+///       ----------------------------------------------
+///       DLAB  SB    EPS   PEN   STB   WLS2  WLS1  WLS0
+///       ```
+/// * 偏移 4: `MCR`(Modem控制寄存器)
+/// * 偏移 5: `LSR`(线状态寄存器)
+/// * 偏移 6: `MSR`(Modem状态寄存器)
+/// * 偏移 7: `SCR`(Scratch寄存器)
 pub struct Uart {
     base_address: usize,
 }
