@@ -3,13 +3,4 @@ name = "lex"
 version = "0.1.0"
 edition = "2024"
 
-[profile.dev]
-opt-level = 0
-lto = false
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-
 [dependencies]
