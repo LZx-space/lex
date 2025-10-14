@@ -10,9 +10,11 @@ use core::{
 /// * 偏移 1:
 ///     * DLAB = 0时，`IER`(中断使能寄存器)
 ///     * DLAB = 1时，`DLM`(除数锁存高字节)
-/// * 偏移 2: `IIR`/`FCR`(中断标识寄存器/FIFO 控制寄存器)
+/// * 偏移 2:
+///     * `IIR`(中断标识寄存器)
+///     * `FCR`(FIFO控制寄存器)
 /// * 偏移 3: `LCR`(线控制寄存器)
-///     * 有8位，分别功能
+///     * 8位分别功能
 ///       ```
 ///       bit7  bit6  bit5  bit4  bit3  bit2  bit1  bit0
 ///       ----------------------------------------------
@@ -25,6 +27,23 @@ use core::{
 pub struct Uart {
     base_address: usize,
 }
+
+// 寄存器偏移量
+const RBR: usize = 0x00; // 接收数据寄存器（读）
+const TBR: usize = 0x00; // 发送数据寄存器（写）
+const DLL: usize = 0x00; // 波特率除数低位
+const DLM: usize = 0x01; // 波特率除数高位
+const LCR: usize = 0x03; // 线路控制寄存器
+const LSR: usize = 0x05; // 线路状态寄存器
+
+// LCR 寄存器位定义（掩码）
+const LCR_DLAB: u8 = 1 << 7; // 波特率除数锁存位（1=允许修改波特率）
+const LCR_DATA_8BIT: u8 = 0b11; // 8 位数据位
+const LCR_STOP_1BIT: u8 = 0 << 2; // 1 个停止位
+const LCR_PARITY_NONE: u8 = 0 << 3; // 无校验位
+
+// LSR 寄存器位定义
+const LSR_TX_EMPTY: u8 = 1 << 5; // 发送缓冲区空（可发送数据）
 
 impl Write for Uart {
     fn write_str(&mut self, out: &str) -> Result<(), Error> {
@@ -41,84 +60,33 @@ impl Uart {
     }
 
     pub fn init(&mut self) {
-        let ptr = self.base_address as *mut u8;
+        let base = self.base_address as *mut u8;
         unsafe {
-            // First, set the word length, which
-            // are bits 0 and 1 of the line control register (LCR)
-            // which is at base_address + 3
-            // We can easily write the value 3 here or 0b11, but I'm
-            // extending it so that it is clear we're setting two
-            // individual fields
-            //             Word 0     Word 1
-            //             ~~~~~~     ~~~~~~
-            let lcr: u8 = (1 << 0) | (1 << 1);
-            ptr.add(3).write_volatile(lcr);
+            // 步骤 1：设置 DLAB 位（允许修改波特率除数）
+            let mut lcr = base.add(LCR).read_volatile();
+            lcr |= LCR_DLAB; // 置位 DLAB
+            base.add(LCR).write_volatile(lcr);
 
-            // Now, enable the FIFO, which is bit index 0 of the
-            // FIFO control register (FCR at offset 2).
-            // Again, we can just write 1 here, but when we use left
-            // shift, it's easier to see that we're trying to write
-            // bit index #0.
-            ptr.add(2).write_volatile(1 << 0);
+            // 步骤 2：配置波特率（115200）
+            // 波特率除数 = 系统时钟 / (16 * 目标波特率)
+            // QEMU UART 时钟默认为 18.432 MHz，18432000 / (16 * 115200) = 10
+            const DIVISOR: u16 = 10;
+            base.add(DLL).write_volatile((DIVISOR & 0xFF) as u8); // 低位
+            base.add(DLM).write_volatile((DIVISOR >> 8) as u8); // 高位
 
-            // Enable receiver buffer interrupts, which is at bit
-            // index 0 of the interrupt enable register (IER at
-            // offset 1).
-            ptr.add(1).write_volatile(1 << 0);
-
-            // If we cared about the divisor, the code below would
-            // set the divisor from a global clock rate of 22.729
-            // MHz (22,729,000 cycles per second) to a signaling
-            // rate of 2400 (BAUD). We usually have much faster
-            // signaling rates nowadays, but this demonstrates what
-            // the divisor actually does. The formula given in the
-            // NS16500A specification for calculating the divisor
-            // is:
-            // divisor = ceil( (clock_hz) / (baud_sps x 16) )
-            // So, we substitute our values and get:
-            // divisor = ceil( 22_729_000 / (2400 x 16) )
-            // divisor = ceil( 22_729_000 / 38_400 )
-            // divisor = ceil( 591.901 ) = 592
-
-            // The divisor register is two bytes (16 bits), so we
-            // need to split the value 592 into two bytes.
-            // Typically, we would calculate this based on measuring
-            // the clock rate, but again, for our purposes [qemu],
-            // this doesn't really do anything.
-            let divisor: u16 = 592;
-            let divisor_least: u8 = (divisor & 0xff).try_into().unwrap();
-            let divisor_most: u8 = (divisor >> 8).try_into().unwrap();
-
-            // Notice that the divisor register DLL (divisor latch
-            // least) and DLM (divisor latch most) have the same
-            // base address as the receiver/transmitter and the
-            // interrupt enable register. To change what the base
-            // address points to, we open the "divisor latch" by
-            // writing 1 into the Divisor Latch Access Bit (DLAB),
-            // which is bit index 7 of the Line Control Register
-            // (LCR) which is at base_address + 3.
-            ptr.add(3).write_volatile(lcr | 1 << 7);
-
-            // Now, base addresses 0 and 1 point to DLL and DLM,
-            // respectively. Put the lower 8 bits of the divisor
-            // into DLL
-            ptr.add(0).write_volatile(divisor_least);
-            ptr.add(1).write_volatile(divisor_most);
-
-            // Now that we've written the divisor, we never have to
-            // touch this again. In hardware, this will divide the
-            // global clock (22.729 MHz) into one suitable for 2,400
-            // signals per second. So, to once again get access to
-            // the RBR/THR/IER registers, we need to close the DLAB
-            // bit by clearing it to 0.
-            ptr.add(3).write_volatile(lcr);
+            // 步骤 3：配置数据格式（8 位数据位，1 位停止位，无校验），并清除 DLAB
+            lcr = LCR_DATA_8BIT | LCR_STOP_1BIT | LCR_PARITY_NONE;
+            base.add(LCR).write_volatile(lcr); // DLAB 被自动清除
         }
     }
 
     pub fn put(&mut self, c: u8) {
-        let ptr = self.base_address as *mut u8;
+        let base = self.base_address as *mut u8;
         unsafe {
-            ptr.add(0).write_volatile(c);
+            // 等待发送缓冲区为空（LSR 的第 5 位为 1）
+            while (base.add(LSR).read_volatile() & LSR_TX_EMPTY) == 0 {}
+            // 写入字符到发送寄存器
+            base.add(TBR).write_volatile(c);
         }
     }
 

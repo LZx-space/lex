@@ -1,5 +1,6 @@
 # boot.S
 # bootloader
+
 .option norvc
 .section .data
 .section .text.init
@@ -28,22 +29,16 @@ _start:
 	# and mtvec to return to the main function.
 	# li		t5, 0xffff;
 	# csrw	medeleg, t5
-	# csrw	mideleg, t5
-	la		sp, _stack
+	la		sp, _stack_end
 	# We use mret here so that the mstatus register
 	# is properly updated.
-	li		t0, (0b11 << 11) | (1 << 7) | (1 << 3)
+	li		t0, (0b11 << 11)
 	csrw	mstatus, t0
 	la		t1, kernel_main
 	csrw	mepc, t1
-	la		t2, asm_trap_vector
-	csrw	mtvec, t2
-	li		t3, (1 << 3) | (1 << 7) | (1 << 11)
-	csrw	mie, t3
 	la		ra, 4f
 	mret
 3:
-
 	# Parked harts go here. We need to set these
 	# to only awaken if it receives a software interrupt,
 	# which we're going to call the SIPI (Software Intra-Processor Interrupt).
