@@ -1,10 +1,10 @@
 # boot.S
 # bootloader
 
-.option norvc
+.option  norvc
 .section .data
 .section .text.init
-.global _start
+.global  _start
 _start:
 	# Any hardware threads (hart) that are not bootstrapping
 	# need to wait for an IPI
@@ -12,6 +12,7 @@ _start:
 	bnez	t0, 3f
 	# SATP should be zero, but let's make sure
 	csrw	satp, zero
+
 .option push
 .option norelax
 	la		gp, _global_pointer
@@ -20,6 +21,7 @@ _start:
 	la 		a0, _bss_start
 	la		a1, _bss_end
 	bgeu	a0, a1, 2f
+
 1:
 	sd		zero, (a0)
 	addi	a0, a0, 8
