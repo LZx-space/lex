@@ -81,13 +81,14 @@ impl Uart {
         }
     }
 
-    pub fn put(&self, c: u8) {
+    /// 发送字节
+    pub fn transmit(&self, byte: u8) {
         let base = self.base_address as *mut u8;
         unsafe {
-            // 等待发送缓冲区为空（LSR 的第 5 位为 1）
+            // 等待发送缓冲区为空（LSR的第5位为1）
             while (base.add(Self::LSR).read_volatile() & Self::LSR_TX_EMPTY) == 0 {}
-            // 写入字符到发送寄存器 - 使用THR
-            base.add(Self::THR).write_volatile(c);
+            // 写入到发送寄存器 - 使用THR
+            base.add(Self::THR).write_volatile(byte);
         }
     }
 }

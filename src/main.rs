@@ -36,8 +36,8 @@ struct UartWrapper<'a> {
 impl<'a> Write for UartWrapper<'a> {
     fn write_str(&mut self, out: &str) -> Result<(), Error> {
         let uart = self.uart;
-        for c in out.bytes() {
-            uart.put(c);
+        for b in out.bytes() {
+            uart.transmit(b);
         }
         Ok(())
     }
