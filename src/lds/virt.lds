@@ -11,37 +11,19 @@
 OUTPUT_ARCH( "riscv" )
 
 /*
-  We're setting our entry point to a symbol
-  called _start which is inside of boot.S. This
-  essentially stores the address of _start as the
-  "entry point", or where CPU instructions should start
-  executing.
-
-  In the rest of this script, we are going to place _start
-  right at the beginning of 0x8000_0000 because this is where
-  the virtual machine and many RISC-V boards will start executing.
+  将入口点设置为一个名为_start 的符号，它位于boot.S中。
+  这本质上是将_start 的地址存储为 “入口点”，也就是CPU指令应该开始执行的地方。
+  在本脚本的其余部分，我们将把_start放在0x8000_0000的起始位置，因为这是虚拟机和许多RISC-V开发板开始执行的位置。
 */
 ENTRY( _start )
 
 /*
-  The MEMORY section will explain that we have "ram" that contains
-  a section that is 'w' (writeable), 'x' (executable), and 'a' (allocatable).
-
-  The ORIGIN is the memory address 0x8000_0000. If we look at the virt
-  spec or the specification for the RISC-V HiFive Unleashed, this is the
-  starting memory address for our code.
-
-  Side note: There might be other boot ROMs at different addresses, but
-  their job is to get to this point.
-
-  Finally LENGTH = 128M tells the linker that we have 128 megabyte of RAM.
-  The linker will double check this to make sure everything can fit.
-
-  The HiFive Unleashed has a lot more RAM than this, but for the virtual
-  machine, I went with 128M since I think that's enough RAM for now.
-
-  We can provide other pieces of memory, such as QSPI, or ROM, but we're
-  telling the linker script here that we have one pool of RAM.
+  MEMORY部分将说明我们有RAM（随机存取存储器），它包含一个具有 “w”（可写）、“x”（可执行）和 “a”（可分配）属性的区域。
+  ORIGIN（起始地址）是内存地址0x8000_0000。查看virt规格或RISC-V HiFive Unleashed的规格说明，就能确定这是我们代码的起始内存地址。
+  旁注：在不同的地址可能存在其他启动 ROM（只读存储器），但它们的作用就是引导至这一位置。
+  最后，LENGTH=128M告诉链接器我们有 128 兆字节的RAM。链接器会对此进行双重检查，以确保所有内容都能容纳其中。
+  HiFive Unleashed的RAM实际上比这多得多，但对于虚拟机，我选择了 128M，因为我认为目前这个容量的 RAM 已经足够了。
+  我们可以提供其他类型的内存，比如QSPI（四通道串行外设接口或ROM，但在此处的链接器脚本中，我们只告知有RAM。
 */
 MEMORY
 {
@@ -49,21 +31,14 @@ MEMORY
 }
 
 /*
-  PHDRS is short for "program headers", which we specify three here:
-  text - CPU instructions (executable sections)
-  data - Global, initialized variables
-  bss  - Global, uninitialized variables (all will be set to 0 by boot.S)
-
-  The command PT_LOAD tells the linker that these sections will be loaded
-  from the file into memory.
-
-  We can actually stuff all of these into a single program header, but by
-  splitting it up into three, we can actually use the other PT_* commands
-  such as PT_DYNAMIC, PT_INTERP, PT_NULL to tell the linker where to find
-  additional information.
-
-  However, for our purposes, every section will be loaded from the program
-  headers.
+  PHDRS是“程序头”（program headers）的缩写，我们在这里指定了三个：
+  text - CPU指令（可执行段）
+  data - 全局的、已初始化的变量
+  bss  - 全局的、未初始化的变量（所有这些变量都将由boot.S设置为 0）
+  PT_LOAD 命令告诉链接器，这些段将从文件加载到内存中。
+  实际上，我们可以把所有这些都塞进一个程序头里，但通过将其拆分为三个，我们实际上可以使用其他PT_*命令，
+  如PT_DYNAMIC、PT_INTERP、PT_NULL来告诉链接器在哪里可以找到额外的信息。
+  不过，就我们的目的而言，每个段都将从程序头加载。
 */
 PHDRS
 {
@@ -73,28 +48,25 @@ PHDRS
 }
 
 /*
-  We are now going to organize the memory based on which
-  section it is in. In assembly, we can change the section
-  with the ".section" directive. However, in C++ and Rust,
-  CPU instructions go into text, global constants go into
-  rodata, global initialized variables go into data, and
-  global uninitialized variables go into bss.
+  现在我们将根据内存所在的段来对其进行组织。在汇编语言中，我们可以使用“.section”指令来更改段。
+  不过，在C++和Rust中，CPU指令会进入text段，全局常量会进入rodata段，已初始化的全局变量会进入data段，
+  而未初始化的全局变量会进入bss段。
 */
 SECTIONS
 {
   /*
-    The first part of our RAM layout will be the text section.
-    Since our CPU instructions are here, and our memory starts at
-    0x8000_0000, we need our entry point to line up here.
+    我们的RAM布局的第一部分将是text段。
+    由于我们的CPU指令位于此处，且我们的内存从0x8000_0000开始，因此我们需要让入口点与此处对齐。
   */
   .text : {
     /*
-      PROVIDE allows me to access a symbol called _text_start so
-      I know where the text section starts in the operating system.
-      This should not move, but it is here for convenience.
-      The period '.' tells the linker to set _text_start to the
-      CURRENT location ('.' = current memory location). This current
-      memory location moves as we add things.
+      PROVIDE:
+      如果项目中没有其他地方（比如C代码、汇编代码）定义这个符号，就用链接器脚本里的这个定义。
+      如果其他地方定义了，就用其他地方的定义（即链接器脚本的定义会被覆盖）。
+
+      这里定义一个名为_text_start的符号，这样我就知道操作系统中文本段的起始位置。
+      它不应该移动，但放在这里是为了方便。句点 “.” 告诉链接器将_text_start设置为当前位置（“.”= 当前内存位置）。随着我们添加内容，
+      这个当前内存位置会发生变化。
     */
     PROVIDE(_text_start = .);
 

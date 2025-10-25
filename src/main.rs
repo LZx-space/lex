@@ -2,8 +2,14 @@
 #![no_std]
 #![no_main]
 #![feature(allocator_api, alloc_error_handler)]
-global_asm!(include_str!("asm/boot.S"));
 
+// /////////////////////////////////////
+// 汇编代码内联
+// /////////////////////////////////////
+global_asm!(include_str!("asm/boot.S"));
+global_asm!(include_str!("asm/mem.S"));
+
+mod memory;
 mod uart;
 
 use crate::uart::Uart;
@@ -17,6 +23,7 @@ use core::panic::PanicInfo;
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
     Uart::init(0x1000_0000);
+    memory::init();
     println!("Hello World!");
     loop {
         unsafe {
@@ -26,7 +33,7 @@ pub extern "C" fn kernel_main() -> ! {
 }
 
 // ///////////////////////////////////
-// / RUST MACROS
+// RUST宏
 // ///////////////////////////////////
 
 struct UartWrapper<'a> {
@@ -54,8 +61,8 @@ impl<'a> UartWrapper<'a> {
 macro_rules! print {
     ($($args:tt)+) => {{
         use core::fmt::Write;
-        let uart = uart::Uart::uart();
-        let mut wrapper = UartWrapper::new(&uart);
+        let uart = crate::uart::Uart::uart();
+        let mut wrapper = crate::UartWrapper::new(&uart);
         let _ = write!(&mut wrapper, $($args)+);
     }};
 }
@@ -64,18 +71,18 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
 	() => ({
-		print!("\r\n")
+		crate::print!("\r\n")
 	});
 	($fmt:expr) => ({
-		print!(concat!($fmt, "\r\n"))
+		crate::print!(concat!($fmt, "\r\n"))
 	});
 	($fmt:expr, $($args:tt)+) => ({
-		print!(concat!($fmt, "\r\n"), $($args)+)
+		crate::print!(concat!($fmt, "\r\n"), $($args)+)
 	});
 }
 
 // ///////////////////////////////////
-// / LANGUAGE STRUCTURES / FUNCTIONS
+// 语言功能
 // ///////////////////////////////////
 #[unsafe(no_mangle)]
 extern "C" fn eh_personality() {

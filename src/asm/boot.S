@@ -1,4 +1,3 @@
-# boot.S
 # bootloader
 
 .option  norvc
@@ -49,4 +48,3 @@ _start:
 4:
 	wfi
 	j		4b
-
