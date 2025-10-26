@@ -41,7 +41,7 @@ pub fn init() {
 /// ```
 pub const fn align_to_power_of_two(val: usize, order: usize) -> usize {
     let modulus = 1usize << order;
-    let mask_complement = (modulus) - 1;
+    let mask_complement = modulus - 1;
     (val + mask_complement) & !mask_complement
 }
 
