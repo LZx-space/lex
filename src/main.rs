@@ -11,6 +11,7 @@ global_asm!(include_str!("asm/mem.S"));
 
 mod memory;
 mod uart;
+mod util;
 
 use crate::uart::Uart;
 use core::arch::{asm, global_asm};
