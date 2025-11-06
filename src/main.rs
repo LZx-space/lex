@@ -2,6 +2,7 @@
 #![no_std]
 #![no_main]
 #![feature(allocator_api, alloc_error_handler)]
+#![feature(nonzero_ops)]
 
 // /////////////////////////////////////
 // 汇编代码内联
