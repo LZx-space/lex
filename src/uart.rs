@@ -24,7 +24,7 @@ static UART: Once<Uart> = Once::new();
 /// * 偏移 6: `MSR`(Modem状态寄存器)
 /// * 偏移 7: `SCR`(Scratch寄存器)
 pub struct Uart {
-    base_address: usize,
+    base_addr: usize,
 }
 
 #[allow(unused)]
@@ -53,17 +53,16 @@ impl Uart {
     }
 
     /// 初始化UART单例
-    pub fn init(base_address: usize) {
+    pub fn init(base_addr: usize) {
         UART.call_once(|| {
-            let uart = Uart { base_address };
-            uart.init_hardware(); // 在单例创建时初始化硬件
-            uart
+            let uart = Uart { base_addr };
+            uart.init_hardware(); // 在单例创建时初始化硬件            uart
         });
     }
 
     /// 初始化UART硬件
     fn init_hardware(&self) {
-        let base = self.base_address as *mut u8;
+        let base = self.base_addr as *mut u8;
         unsafe {
             // 步骤 1：设置 DLAB 位（允许修改波特率除数）
             let mut lcr = base.add(Self::LCR).read_volatile();
@@ -83,7 +82,7 @@ impl Uart {
 
     /// 发送字节
     pub fn transmit(&self, byte: u8) {
-        let base = self.base_address as *mut u8;
+        let base = self.base_addr as *mut u8;
         unsafe {
             // 等待发送缓冲区为空（LSR的第5位为1）
             while (base.add(Self::LSR).read_volatile() & Self::LSR_TX_EMPTY) == 0 {}
