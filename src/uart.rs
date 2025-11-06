@@ -56,7 +56,8 @@ impl Uart {
     pub fn init(base_addr: usize) {
         UART.call_once(|| {
             let uart = Uart { base_addr };
-            uart.init_hardware(); // 在单例创建时初始化硬件            uart
+            uart.init_hardware(); // 在单例创建时初始化硬件
+            uart
         });
     }
 
