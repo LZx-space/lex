@@ -1,4 +1,9 @@
-use core::num::NonZeroUsize;
+use core::{
+    num::NonZeroUsize,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+use spin::lazy::Lazy;
 
 pub mod phys;
 
