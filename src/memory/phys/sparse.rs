@@ -16,14 +16,14 @@ pub const PAGES_PER_SECTION: usize = SECTION_SIZE / FRAME_SIZE;
 
 pub struct MemorySection {
     /// Pointer to this section's frame array
-    mem_pages: Option<NonNull<Frame>>,
+    mem_frames: Option<NonNull<Frame>>,
     num_frames: usize,
 }
 
 impl MemorySection {
     pub fn new() -> Self {
         Self {
-            mem_pages: None,
+            mem_frames: None,
             num_frames: 0,
         }
     }
@@ -46,7 +46,7 @@ impl MemorySection {
         for frame in frame_array {
             *frame = Frame {};
         }
-        self.mem_pages = Some(NonNull::new(frame_array_ptr as *mut Frame).unwrap());
+        self.mem_frames = Some(NonNull::new(frame_array_ptr as *mut Frame).unwrap());
         self.num_frames = num_frames;
         Ok(())
     }
@@ -54,7 +54,7 @@ impl MemorySection {
     /// # 参数
     /// * `frame_offset` - 帧在`MemorySection::mem_pages`中的偏移量(数组索引)
     pub fn get_frame(&self, frame_offset: usize) -> Option<&Frame> {
-        if let Some(ptr) = self.mem_pages {
+        if let Some(ptr) = self.mem_frames {
             // 需要存储实际的帧数量来进行边界检查
             // 这里假设有 num_frames 字段
             if frame_offset < self.num_frames {
