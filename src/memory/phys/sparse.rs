@@ -14,6 +14,12 @@ pub const SECTION_SIZE: usize = 1 << SECTION_SIZE_BITS;
 /// 2^15 = 32768
 pub const PAGES_PER_SECTION: usize = SECTION_SIZE / FRAME_SIZE;
 
+/// 可能的可分配物理内存区域
+/// # 图示
+/// |0x0000     |           |           |0xffff     |
+/// |-----------|-----------|-----------|-----------|
+/// |taken      |free       |taken      |free       |
+/// |           |n*section  |           |n*section  |
 pub struct MemorySection {
     /// Pointer to this section's frame array
     mem_frames: Option<NonNull<Frame>>,
