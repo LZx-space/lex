@@ -1,3 +1,4 @@
+/// Sparse Memory Model Implementation
 use spin::mutex::Mutex;
 
 use crate::memory::phys::frame::{FRAME_SIZE, FRAME_SIZE_BITS, Frame};
