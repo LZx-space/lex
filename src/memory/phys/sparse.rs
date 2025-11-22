@@ -13,23 +13,25 @@ pub const SECTION_SIZE_BITS: usize = 27;
 /// 128MB
 pub const SECTION_SIZE: usize = 1 << SECTION_SIZE_BITS;
 /// 2^15 = 32768
-pub const PAGES_PER_SECTION: usize = SECTION_SIZE / FRAME_SIZE;
+pub const FRAMES_PER_SECTION: usize = SECTION_SIZE / FRAME_SIZE;
 
-/// 可能的可分配物理内存区域
+/// 管理的物理内存区域，无论物理内存是否被内核、硬件预占等，将实际物理内存按section划分
 /// # 图示
-/// |0x0000     |           |           |0xffff     |
-/// |-----------|-----------|-----------|-----------|
-/// |taken      |free       |taken      |free       |
-/// |           |n*section  |           |n*section  |
+/// |0x0000     |0xffff     |
+/// |-----------|-----------|
+/// |taken      |free       |
+/// |          n*section    |
 pub struct MemorySection {
+    base_addr: PhysicalAddress,
     /// Pointer to this section's frame array
     mem_frames: Option<NonNull<Frame>>,
     num_frames: usize,
 }
 
 impl MemorySection {
-    pub fn new() -> Self {
+    pub fn new(base_addr: PhysicalAddress) -> Self {
         Self {
+            base_addr,
             mem_frames: None,
             num_frames: 0,
         }
@@ -37,8 +39,8 @@ impl MemorySection {
 
     /// Initialize the section with physical memory
     /// This allocates the frame array for this section
-    pub fn init(&mut self, num_frames: usize) -> Result<(), &'static str> {
-        if num_frames > PAGES_PER_SECTION {
+    pub fn init(&mut self, base_pfn: usize, num_frames: usize) -> Result<(), &'static str> {
+        if num_frames > FRAMES_PER_SECTION {
             return Err("Section overflow: too many pages");
         }
         // Allocate memory for frame structures
@@ -50,8 +52,10 @@ impl MemorySection {
 
         // Initialize all frame structures
         let frame_array = unsafe { from_raw_parts_mut(frame_array_ptr as *mut Frame, num_frames) };
+        let mut pfn = base_pfn;
         for frame in frame_array {
-            *frame = Frame {};
+            *frame = Frame::new(pfn);
+            pfn += 1;
         }
         self.mem_frames = Some(NonNull::new(frame_array_ptr as *mut Frame).unwrap());
         self.num_frames = num_frames;
@@ -75,6 +79,11 @@ impl MemorySection {
         } else {
             None
         }
+    }
+
+    /// Get the PFN offset within this section
+    pub fn pfn_to_offset(&self, pfn: usize) -> Option<usize> {
+        todo!()
     }
 }
 
@@ -116,7 +125,7 @@ pub const MAX_SECTIONS: usize = 1 << (47 - SECTION_SIZE_BITS);
 pub struct SparseMemoryManager {
     /// Array of memory sections
     /// Uses Option to handle sparse allocation
-    sections: [Option<MemorySection>; MAX_SECTIONS],
+    mem_sections: [Option<MemorySection>; MAX_SECTIONS],
 
     /// Total section has been initialized
     total_sections: usize,
@@ -136,7 +145,7 @@ impl SparseMemoryManager {
     /// Create a new sparse memory manager
     const fn new() -> Self {
         Self {
-            sections: [const { None }; MAX_SECTIONS],
+            mem_sections: [const { None }; MAX_SECTIONS],
             total_sections: 0,
             total_frames: 0,
         }
@@ -160,20 +169,36 @@ impl SparseMemoryManager {
             .step_by(SECTION_SIZE)
             .map(|start| (start, start + SECTION_SIZE - 1))
             .take_while(|&(_, end)| end <= region_end);
-
+        let mut base_pfn = 0;
         for (section_num, (start, end)) in section_ranges.enumerate() {
             if self.total_sections >= MAX_SECTIONS {
                 return Err("Too many memory sections: exceeded MAX_SECTIONS");
             }
             let frames_in_section = (end - start + 1) / FRAME_SIZE;
 
-            let mut section = MemorySection::new();
-            section.init(frames_in_section)?;
+            let mut section = MemorySection::new(unsafe { PhysicalAddress::new_unchecked(start) });
+            section.init(base_pfn, frames_in_section)?;
 
-            self.sections[section_num] = Some(section);
+            // no matter how many frames are in the section, pfn increment is FRAMES_PER_SECTION
+            ////////////////////////////////////////////////////////////////////////////////////
+            base_pfn += FRAMES_PER_SECTION;
+
+            self.mem_sections[section_num] = Some(section);
             self.total_sections += 1;
             self.total_frames += frames_in_section;
         }
         Ok(())
     }
+}
+
+/// Convert PFN to section index
+#[inline]
+pub fn pfn_to_section_idx(pfn: usize) -> usize {
+    pfn >> (SECTION_SIZE_BITS - FRAME_SIZE_BITS)
+}
+
+/// Convert section index to starting PFN
+#[inline]
+pub fn section_idx_to_pfn(section_idx: usize) -> usize {
+    section_idx << (SECTION_SIZE_BITS - FRAME_SIZE_BITS)
 }
