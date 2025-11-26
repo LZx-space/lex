@@ -166,22 +166,20 @@ impl SparseMemoryManager {
             .step_by(SECTION_SIZE)
             .map(|start| (start, start + SECTION_SIZE - 1))
             .take_while(|&(_, end)| end <= region_end);
-        let mut base_pfn = 0;
         for (start, end) in section_ranges {
             if self.total_sections >= MAX_SECTIONS {
                 return Err("Too many memory sections: exceeded MAX_SECTIONS");
             }
             let frames_in_section = (end - start) >> FRAME_SIZE_BITS;
 
-            let mut section = MemorySection::new();
-            section.init(base_pfn, frames_in_section)?;
-
-            // Always FRAMES_PER_SECTION frames in the section, so pfn can calculate frame index
-            ////////////////////////////////////////////////////////////////////////////////////
-            base_pfn += FRAMES_PER_SECTION;
             // Use physical address calculation section index, so pfn can calculate section index
             ////////////////////////////////////////////////////////////////////////////////////
             let section_idx = start >> SECTION_SIZE_BITS;
+            let base_pfn = section_idx_to_pfn(section_idx);
+
+            let mut section = MemorySection::new();
+            section.init(base_pfn, frames_in_section)?;
+
             self.mem_sections[section_idx] = Some(section);
             self.total_sections += 1;
             self.total_frames += frames_in_section;
