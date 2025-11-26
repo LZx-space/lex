@@ -22,16 +22,14 @@ pub const FRAMES_PER_SECTION: usize = SECTION_SIZE / FRAME_SIZE;
 /// |taken      |free       |
 /// |          n*section    |
 pub struct MemorySection {
-    base_addr: PhysicalAddress,
     /// Pointer to this section's frame array
     mem_frames: Option<NonNull<Frame>>,
     num_frames: usize,
 }
 
 impl MemorySection {
-    pub fn new(base_addr: PhysicalAddress) -> Self {
+    pub fn new() -> Self {
         Self {
-            base_addr,
             mem_frames: None,
             num_frames: 0,
         }
@@ -67,7 +65,6 @@ impl MemorySection {
     pub fn get_frame(&self, frame_offset: usize) -> Option<&Frame> {
         if let Some(ptr) = self.mem_frames {
             // 需要存储实际的帧数量来进行边界检查
-            // 这里假设有 num_frames 字段
             if frame_offset < self.num_frames {
                 unsafe {
                     let frame_ptr = ptr.as_ptr().add(frame_offset);
@@ -170,20 +167,22 @@ impl SparseMemoryManager {
             .map(|start| (start, start + SECTION_SIZE - 1))
             .take_while(|&(_, end)| end <= region_end);
         let mut base_pfn = 0;
-        for (section_num, (start, end)) in section_ranges.enumerate() {
+        for (start, end) in section_ranges {
             if self.total_sections >= MAX_SECTIONS {
                 return Err("Too many memory sections: exceeded MAX_SECTIONS");
             }
-            let frames_in_section = (end - start + 1) / FRAME_SIZE;
+            let frames_in_section = (end - start) >> FRAME_SIZE_BITS;
 
-            let mut section = MemorySection::new(unsafe { PhysicalAddress::new_unchecked(start) });
+            let mut section = MemorySection::new();
             section.init(base_pfn, frames_in_section)?;
 
-            // no matter how many frames are in the section, pfn increment is FRAMES_PER_SECTION
+            // Always FRAMES_PER_SECTION frames in the section, so pfn can calculate frame index
             ////////////////////////////////////////////////////////////////////////////////////
             base_pfn += FRAMES_PER_SECTION;
-
-            self.mem_sections[section_num] = Some(section);
+            // Use physical address calculation section index, so pfn can calculate section index
+            ////////////////////////////////////////////////////////////////////////////////////
+            let section_idx = start >> SECTION_SIZE_BITS;
+            self.mem_sections[section_idx] = Some(section);
             self.total_sections += 1;
             self.total_frames += frames_in_section;
         }
