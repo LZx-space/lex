@@ -120,8 +120,8 @@ pub const MAX_SECTIONS: usize = 1 << (47 - SECTION_SIZE_BITS);
 
 /// Global sparse memory manager
 pub struct SparseMemoryManager {
-    /// Array of memory sections
-    /// Uses Option to handle sparse allocation
+    /// * Array of memory sections
+    /// * **Uses Option to handle sparse allocation**
     mem_sections: [Option<MemorySection>; MAX_SECTIONS],
 
     /// Total section has been initialized
