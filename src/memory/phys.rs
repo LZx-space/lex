@@ -15,12 +15,7 @@ use crate::println;
 /// N * 每个物理页状态 | 实际可分配的物理页
 /// ```
 /// 旁注：这不是一个精准的算法，待优化
-pub fn init() {
+pub fn init() -> Result<(), &'static str> {
     println!("物理内存管理初始化-开始");
-    match sparse_init() {
-        Ok(_) => {}
-        Err(err) => {
-            println!("稀疏物理内存管理初始化失败：{}", err);
-        }
-    }
+    sparse_init()
 }

@@ -9,8 +9,8 @@ pub mod phys;
 
 pub type PhysicalAddress = NonZeroUsize;
 
-pub fn init() {
-    phys::init();
+pub fn init() -> Result<(), &'static str> {
+    phys::init()
 }
 
 /////////////////////////////////////////////////////////////////

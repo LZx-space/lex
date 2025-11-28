@@ -25,7 +25,12 @@ use core::panic::PanicInfo;
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
     Uart::init(0x1000_0000);
-    memory::init();
+    match memory::init() {
+        Ok(_) => {}
+        Err(err) => {
+            println!("初始化内存失败-{}", err)
+        }
+    }
     println!("Hello World!");
     loop {
         unsafe {
