@@ -1,9 +1,3 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
-
-use spin::lazy::Lazy;
-
-use crate::memory::PhysicalAddress;
-
 /// 向上对齐
 /// * `val` - 被对齐数
 /// * `order` - 对齐模为2的`order`次方
