@@ -95,7 +95,6 @@ unsafe extern "C" {
 }
 
 /// Global sparse memory manager instance
-/// Global sparse memory manager
 static SPARSE_MEMORY_MANAGER: Mutex<SparseMemoryManager> = Mutex::new(SparseMemoryManager::new());
 
 /// 提供线程安全的访问方法
@@ -169,6 +168,7 @@ impl SparseMemoryManager {
             return Err("Invalid memory region: end <= start after alignment");
         }
         if region_end - region_start < SECTION_SIZE {
+            // todo maybe just return OK(())
             return Err("Invalid memory region: size < SECTION_SIZE");
         }
         // Initialize each section in the region
