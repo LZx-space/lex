@@ -3,6 +3,7 @@ use spin::mutex::Mutex;
 
 use crate::memory::phys::frame::{FRAME_SIZE, FRAME_SIZE_BITS, Frame};
 use crate::memory::{BOOT_FRAME_ALLOCATOR, PhysicalAddress};
+use crate::println;
 use crate::util::{align_down_pow2, align_up_pow2};
 use core::mem::size_of;
 use core::ptr::NonNull;
@@ -157,10 +158,19 @@ impl SparseMemoryManager {
     ) -> Result<(), &'static str> {
         let region_start = align_up_pow2(region_start.get(), FRAME_SIZE_BITS);
         let region_end = align_down_pow2(region_end.get(), FRAME_SIZE_BITS);
+        // todo log
+        println!(
+            "Init region, addr from {} to {}-{}MB",
+            region_start,
+            region_end,
+            (region_end - region_start) >> 20
+        );
         if region_end <= region_start {
             return Err("Invalid memory region: end <= start after alignment");
         }
-
+        if region_end - region_start < SECTION_SIZE {
+            return Err("Invalid memory region: size < SECTION_SIZE");
+        }
         // Initialize each section in the region
         let section_ranges = (region_start..=region_end)
             .step_by(SECTION_SIZE)
